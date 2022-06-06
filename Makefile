@@ -21,9 +21,8 @@ dialyzer: $(REBAR)
 xref: $(REBAR)
 	$(REBAR) as test xref
 
-clean: $(REBAR)
+clean: $(REBAR) clean_doc
 	$(REBAR) clean
-	clean_doc
 	
 clean_doc:
 	@rm -f doc/*.html
