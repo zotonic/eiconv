@@ -1,7 +1,11 @@
-# Erlang NIF wrapper for iconv
+[![Build Status][gh badge]][gh]
+[![Hex.pm version][hexpm version]][hexpm]
+[![Hex.pm Downloads][hexpm downloads]][hexpm]
+[![Hex.pm Documentation][hexdocs documentation]][hexdocs]
+[![Erlang Versions][erlang version badge]][gh]
+[![License][license]](https://www.apache.org/licenses/LICENSE-2.0)
 
-![Test](https://github.com/zotonic/eiconv/workflows/Test/badge.svg)
-[![Hex pm](http://img.shields.io/hexpm/v/eiconv.svg?style=flat)](https://hex.pm/packages/eiconv)
+# Erlang NIF wrapper for iconv
 
 An Erlang wrapper for the character set conversion utility [iconv](https://en.wikipedia.org/wiki/Iconv).
 
@@ -63,3 +67,14 @@ Wrapper provided by Maas-Maarten Zeeman and the [Zotonic](https://github.com/zot
 * [Maas-Maarten Zeeman](https://github.com/mmzeeman)
 * [Arjan Scherpenisse](https://github.com/arjan)
 * [Marc Worrell](https://github.com/mworrell)
+
+<!-- Badges -->
+[hexpm]: https://hex.pm/packages/eiconv
+[hexpm version]: https://img.shields.io/hexpm/v/eiconv.svg?style=flat-curcle "Hex version"
+[hexpm downloads]: https://img.shields.io/hexpm/dt/eiconv.svg?style=flat-curcle
+[hexdocs documentation]: https://img.shields.io/badge/hex-docs-purple.svg?style=flat-curcle
+[hexdocs]: https://hexdocs.pm/eiconv
+[gh]: https://github.com/zotonic/eiconv/actions/workflows/test.yaml
+[gh badge]: https://github.com/zotonic/eiconv/workflows/Test/badge.svg
+[erlang version badge]: https://img.shields.io/badge/Supported%20Erlang%2FOTP-19%20to%2023-blue.svg?style=flat-curcle
+[license]: https://img.shields.io/badge/License-Apache_2.0-blue.svg?logo=apache&logoColor=red "Apache 2.0"
