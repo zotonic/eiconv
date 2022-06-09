@@ -9,8 +9,5 @@ rebar3
 doc/*
 !doc/style.css
 !doc/overview.edoc
-!doc/img
-!doc/img/*
-!doc/img/logo.png 
 .vscode
 erl_crash.dump
