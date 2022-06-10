@@ -1,16 +1,37 @@
-% Copyright 2011, 2012, 2013 Maas-Maarten Zeeman
-%
-% Licensed under the Apache License, Version 2.0 (the "License");
-% you may not use this file except in compliance with the License.
-% You may obtain a copy of the License at
-% 
-%     http://www.apache.org/licenses/LICENSE-2.0
-% 
-% Unless required by applicable law or agreed to in writing, software
-% distributed under the License is distributed on an "AS IS" BASIS,
-% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-% See the License for the specific language governing permissions and
-% limitations under the License.
+%%% Copyright 2011, 2012, 2013 Maas-Maarten Zeeman
+%%%
+%%% Licensed under the Apache License, Version 2.0 (the "License");
+%%% you may not use this file except in compliance with the License.
+%%% You may obtain a copy of the License at
+%%% 
+%%%     http://www.apache.org/licenses/LICENSE-2.0
+%%% 
+%%% Unless required by applicable law or agreed to in writing, software
+%%% distributed under the License is distributed on an "AS IS" BASIS,
+%%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%%% See the License for the specific language governing permissions and
+%%% limitations under the License.
+%%%
+%%% @author Maas-Maarten Zeeman <mmzeeman@xs4all.nl>
+%%% @doc eiconv module.
+%%%
+%%% <h3>There two type of APIs:</h3>
+%%% <ul>
+%%%   <li><b>Easy API one shot convert API:</b>
+%%%     <ul>
+%%%       <li>{@link convert/2}</li>
+%%%       <li>{@link convert/3}</li>
+%%%     </ul>
+%%%   </li>
+%%%   <li><b>Old iconv compatible API:</b>
+%%%     <ul>
+%%%       <li>{@link open/2}</li>
+%%%       <li>{@link conv/2}</li>
+%%%       <li>{@link conv/3}</li>
+%%%       <li>{@link close/1}</li>
+%%%     </ul>
+%%%   </li>
+%%% </ul>
 
 -module(eiconv).
 -author("Maas-Maarten Zeeman <mmzeeman@xs4all.nl>").
@@ -28,8 +49,9 @@
 
 -on_load(init/0).
 
-% @doc Load the nif
-%
+%% @private
+%% @doc Load the <abbr title="native implementation of a function">NIF</abbr>
+
 init() ->
     NifName = "eiconv_nif",
     NifFileName = case code:priv_dir(eiconv) of
@@ -39,29 +61,32 @@ init() ->
 
     ok = erlang:load_nif(NifFileName, 0).
 
-% @doc Open a new encoder which can be used to convert text from FromCode into ToCode.
-%
+%% @doc Open a new encoder which can be used to convert text from `FromCode' into `ToCode'.
+
 open(_ToCode, _FromCode) ->
     erlang:nif_error(nif_library_not_loaded).
 
-% @doc Convert a chunk, returns {done, ConvertedBytes} } | {more, Converted}
-%
+%% @private
+%% @doc Convert a chunk, returns `{done, ConvertedBytes} } | {more, Converted}'
+
 chunk(_Cd, _Input) ->
     erlang:nif_error(nif_library_not_loaded).
 
-% @doc Reset the cd structure, returns ok | {rest, LeftOverBytes}
-%
+%% @private
+%% @doc Reset the cd structure, 
+%% @returns `ok | {rest, LeftOverBytes}'
+
 finalize(_Cd) ->
     erlang:nif_error(nif_library_not_loaded).
 
-% @doc Convert Input into the requested encoding.
-%
+%% @doc Convert Input into the requested encoding.
+
 conv(Cd, Input) ->
     conv(Cd, Input, ?DEFAULT_CHUNK_SIZE).
 
-% @doc Convert input. The input will first be split into 
-% chunks of ChunkSize before being converted by the nif.
-%
+%% @doc Convert input. The input will first be split into 
+%% chunks of `ChunkSize' before being converted by the nif.
+
 conv(Cd, Input, ChunkSize) ->
     Chunks = split_input(ChunkSize, Input),
     case conv1(Cd, Chunks, []) of
@@ -88,18 +113,30 @@ conv1(Cd, [H|T], Acc) ->
             conv1(Cd, T, [Result | Acc])
     end.
 
-% @doc Close the encoder - dummy function, close will be done by the garbage collector.
-%
+%% @doc Close the encoder - dummy function, close will be done by the garbage collector.
+
 close(_Cd) ->
     ok.
 
-% @doc Convert input FromEncoding to utf-8
-%
+%% @doc Convert input `FromEncoding' to `utf-8'
+%% @equiv convert(FromEncoding, "utf-8", Input)
+
+-spec convert(FromEncoding, Input) -> Result when
+    FromEncoding :: string(), 
+    Input :: string(),
+    Result :: {ok, binary()} | {error, Error},
+    Error :: term().
 convert(FromEncoding, Input) ->
     convert(FromEncoding, "utf-8", Input).
 
-% @doc Convert input which is in FromEncoding to ToEncoding.
-%
+%% @doc Convert `Input' which is in `FromEncoding' to `ToEncoding'.
+
+-spec convert(FromEncoding, ToEncoding, Input) -> Result when
+    FromEncoding :: string(), 
+    ToEncoding :: string(), 
+    Input :: string(),
+    Result :: {ok, binary()} | {error, Error},
+    Error :: term().
 convert(FromEncoding, ToEncoding, Input) ->
     case open(ToEncoding, FromEncoding) of
         {ok, Cd} ->

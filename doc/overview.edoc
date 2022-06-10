@@ -1,0 +1,7 @@
+@author Zotonic Team 
+   [http://zotonic.com]
+@title iconv NIF interface 
+@doc An Erlang wrapper for the character set conversion utility 
+<abbr title="internationalization conversion">[https://en.wikipedia.org/wiki/Iconv iconv]</abbr>.
+@copyright 2011, 2012, 2013 Maas-Maarten Zeeman, Apache-2.0
+@since 2011

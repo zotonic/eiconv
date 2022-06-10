@@ -6,3 +6,8 @@ c_src/*.o
 _build
 c_src/eiconv_nif.d
 rebar3
+doc/*
+!doc/style.css
+!doc/overview.edoc
+.vscode
+erl_crash.dump
