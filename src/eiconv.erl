@@ -124,7 +124,8 @@ close(_Cd) ->
 -spec convert(FromEncoding, Input) -> Result when
     FromEncoding :: string(), 
     Input :: string(),
-    Result :: {ok, binary()}.
+    Result :: {ok, binary()} | {error, Error},
+    Error :: term().
 convert(FromEncoding, Input) ->
     convert(FromEncoding, "utf-8", Input).
 
@@ -134,7 +135,8 @@ convert(FromEncoding, Input) ->
     FromEncoding :: string(), 
     ToEncoding :: string(), 
     Input :: string(),
-    Result :: {ok, binary()}.
+    Result :: {ok, binary()} | {error, Error},
+    Error :: term().
 convert(FromEncoding, ToEncoding, Input) ->
     case open(ToEncoding, FromEncoding) of
         {ok, Cd} ->
