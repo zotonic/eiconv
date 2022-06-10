@@ -30,10 +30,10 @@ clean_doc:
 	@rm -f doc/edoc-info
 
 edoc:  $(REBAR)
-    $(REBAR) edoc
+	$(REBAR) edoc
 
 edoc_private:  $(REBAR)
-    $(REBAR) as edoc_private edoc
+	$(REBAR) as edoc_private edoc
 
 ./rebar3:
 	$(ERL) -noshell -s inets -s ssl \
