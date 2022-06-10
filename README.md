@@ -76,5 +76,5 @@ Wrapper provided by Maas-Maarten Zeeman and the [Zotonic](https://github.com/zot
 [hexdocs]: https://hexdocs.pm/eiconv
 [gh]: https://github.com/zotonic/eiconv/actions/workflows/test.yaml
 [gh badge]: https://github.com/zotonic/eiconv/workflows/Test/badge.svg
-[erlang version badge]: https://img.shields.io/badge/Supported%20Erlang%2FOTP-19%20to%2023-blue.svg?style=flat-curcle
+[erlang version badge]: https://img.shields.io/badge/Supported%20Erlang%2FOTP-22%20to%2025-blue.svg?style=flat-curcle
 [license]: https://img.shields.io/badge/License-Apache_2.0-blue.svg?logo=apache&logoColor=red "Apache 2.0"
