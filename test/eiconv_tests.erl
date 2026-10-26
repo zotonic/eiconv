@@ -40,6 +40,14 @@ utf8_to_iso8859_15_test() ->
     {ok, C} = eiconv:open("iso8859-15", "utf8"),
     ?assertEqual(<<163,  164, 165>>, conv(C, [194, 163, 226, 130, 172, 194, 165])).
 
+null_byte_encoding_name_test() ->
+    ?assertError(badarg, eiconv:open(<<"utf-8\0evil">>, "ascii")),
+    ?assertError(badarg, eiconv:open("utf-8", <<"ascii\0evil">>)),
+    ?assertError(badarg, eiconv:open([<<"utf-8">>, 0, <<"evil">>], "ascii")),
+    ?assertError(badarg, eiconv:convert(<<"utf-8\0evil">>, "ascii", "123")),
+    ?assertError(badarg, eiconv:convert("utf-8", <<"ascii\0evil">>, "123")),
+    ok.
+
 non_existing_codecs_test() ->
     ?assertEqual({error, einval}, eiconv:open("utf-9", "utf-15")),
     ?assertEqual({error, einval}, eiconv:open("utf-8", "iso8859-23")),

@@ -94,6 +94,10 @@ eiconv_open_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
             enif_make_list2(env, argv[1], eos), &fromcode))
         return enif_make_badarg(env);
 
+    if (memchr(tocode.data, '\0', tocode.size - 1) != NULL ||
+        memchr(fromcode.data, '\0', fromcode.size - 1) != NULL)
+        return enif_make_badarg(env);
+
     cd = enif_alloc_resource(eiconv_cd_type, sizeof(eiconv_cd));
     if (cd == NULL) {
         return make_error_tuple(env, "enomem");
