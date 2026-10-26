@@ -1,5 +1,5 @@
 REBAR := ./rebar3
-REBAR_URL := https://s3.amazonaws.com/rebar3/rebar3
+REBAR_URL := https://github.com/erlang/rebar3/releases/download/3.27.3/rebar3
 ERL       ?= erl
 
 .PHONY: compile test
