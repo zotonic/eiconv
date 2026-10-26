@@ -88,7 +88,6 @@ eiconv_open_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
         return enif_make_badarg(env);
 
     cd = enif_alloc_resource(eiconv_cd_type, sizeof(eiconv_cd));
-    
     cd->restbuf.data = NULL;
     cd->restbuf.size = 0;
     
@@ -203,7 +202,7 @@ eiconv_finalize_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
         return enif_make_badarg(env);
 
     /* Reset the cd structure */
-    iconv(cd->cd, NULL, NULL, NULL, 0);
+    iconv(cd->cd, NULL, NULL, NULL, NULL);
     
     if(cd->restbuf.size > 0) {
         r = enif_make_tuple2(env, 
@@ -237,9 +236,9 @@ on_load(ErlNifEnv* env, void** priv, ERL_NIF_TERM info)
 }
 
 static ErlNifFunc nif_funcs[] = {
-    {"open", 2, eiconv_open_nif},
-    {"chunk", 2, eiconv_chunk_nif},
-    {"finalize", 1, eiconv_finalize_nif}
+    {"open", 2, eiconv_open_nif, 0},
+    {"chunk", 2, eiconv_chunk_nif, ERL_NIF_DIRTY_JOB_CPU_BOUND},
+    {"finalize", 1, eiconv_finalize_nif, 0}
 };
 
 ERL_NIF_INIT(eiconv, nif_funcs, on_load, NULL, NULL, NULL);

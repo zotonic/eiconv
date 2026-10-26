@@ -73,3 +73,61 @@ incomplete_chunk_test() ->
     ?assertEqual({done, <<165>>}, eiconv:chunk(C, [194, 165])),
     ?assertEqual(ok, eiconv:finalize(C)),
     ok.
+
+%% Finding 1: Calling chunk with an invalid argument when restbuf holds an incomplete
+%% character should not corrupt restbuf or cause double-free on subsequent operations or GC.
+restbuf_badarg_safety_test() ->
+    {ok, C} = eiconv:open("iso8859-15", "utf8"),
+    %% Feed incomplete UTF-8 sequence, leaving <<194>> in restbuf:
+    ?assertEqual({more, <<"AB">>}, eiconv:chunk(C, <<65, 66, 194>>)),
+    %% Pass an invalid iolist argument (raises badarg):
+    ?assertError(badarg, eiconv:chunk(C, invalid_term)),
+    %% A subsequent chunk call completes the character sequence and finalize cleans up:
+    ?assertEqual({done, <<163>>}, eiconv:chunk(C, <<163>>)),
+    ?assertEqual(ok, eiconv:finalize(C)),
+    erlang:garbage_collect(),
+    ok.
+
+%% Finding 2: Concurrent use of a shared converter descriptor.
+%% Multiple processes using the same Cd concurrently should be thread-safe
+%% and not corrupt internal conversion state or crash with eilseq.
+concurrent_converter_access_test() ->
+    {ok, C} = eiconv:open("iso8859-15", "utf8"),
+    Self = self(),
+    NumWorkers = 10,
+    NumIterations = 100,
+    Pids = [
+        spawn_link(fun() ->
+            lists:foreach(
+                fun(_) ->
+                    case eiconv:chunk(C, <<65, 66, 194>>) of
+                        {more, <<"AB">>} -> ok;
+                        Other1 -> exit({unexpected_chunk1, Other1})
+                    end,
+                    case eiconv:chunk(C, <<163>>) of
+                        {done, <<163>>} -> ok;
+                        Other2 -> exit({unexpected_chunk2, Other2})
+                    end
+                end,
+                lists:seq(1, NumIterations)
+            ),
+            Self ! {done, self()}
+        end)
+     || _ <- lists:seq(1, NumWorkers)
+    ],
+    [receive {done, Pid} -> ok end || Pid <- Pids],
+    ?assertEqual(ok, eiconv:finalize(C)).
+
+%% Finding 4: iconv return value check (rc == 0 vs rc != (size_t)(-1)).
+%% When transliteration is used, iconv performs non-identical conversion and returns
+%% rc > 0. The current code assumes any rc != 0 is an error, failing with {error, eunknown}.
+transliteration_return_value_test() ->
+    case eiconv:open("ascii//translit", "utf-8") of
+        {ok, C} ->
+            ?assertEqual({done, <<"hello EUR world">>},
+                         eiconv:chunk(C, <<"hello € world"/utf8>>)),
+            ?assertEqual(ok, eiconv:finalize(C));
+        {error, einval} ->
+            %% Some libc implementations do not support //translit suffix
+            ok
+    end.
