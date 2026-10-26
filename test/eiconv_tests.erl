@@ -92,21 +92,17 @@ restbuf_badarg_safety_test() ->
 %% Multiple processes using the same Cd concurrently should be thread-safe
 %% and not corrupt internal conversion state or crash with eilseq.
 concurrent_converter_access_test() ->
-    {ok, C} = eiconv:open("iso8859-15", "utf8"),
+    {ok, C} = eiconv:open("utf8", "iso8859-15"),
     Self = self(),
     NumWorkers = 10,
-    NumIterations = 100,
+    NumIterations = 1000,
     Pids = [
         spawn_link(fun() ->
             lists:foreach(
                 fun(_) ->
-                    case eiconv:chunk(C, <<65, 66, 194>>) of
-                        {more, <<"AB">>} -> ok;
-                        Other1 -> exit({unexpected_chunk1, Other1})
-                    end,
-                    case eiconv:chunk(C, <<163>>) of
-                        {done, <<163>>} -> ok;
-                        Other2 -> exit({unexpected_chunk2, Other2})
+                    case eiconv:chunk(C, [163, 164, 165]) of
+                        {done, <<194, 163, 226, 130, 172, 194, 165>>} -> ok;
+                        Other -> exit({unexpected_chunk, Other})
                     end
                 end,
                 lists:seq(1, NumIterations)
