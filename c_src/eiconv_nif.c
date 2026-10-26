@@ -358,9 +358,9 @@ on_load(ErlNifEnv* env, void** priv, ERL_NIF_TERM info)
 }
 
 static ErlNifFunc nif_funcs[] = {
-    {"open", 2, eiconv_open_nif, 0},
+    {"open", 2, eiconv_open_nif, ERL_NIF_DIRTY_JOB_CPU_BOUND},
     {"chunk", 2, eiconv_chunk_nif, ERL_NIF_DIRTY_JOB_CPU_BOUND},
-    {"finalize", 1, eiconv_finalize_nif, 0}
+    {"finalize", 1, eiconv_finalize_nif, ERL_NIF_DIRTY_JOB_CPU_BOUND}
 };
 
 ERL_NIF_INIT(eiconv, nif_funcs, on_load, NULL, NULL, NULL);
