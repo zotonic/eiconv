@@ -77,6 +77,25 @@ eiconv_make_error(ErlNifEnv* env, int error_number) {
 
     return make_error_tuple(env, "eunknown");
 }
+
+/*
+ * Block ISO-2022-CN and ISO-2022-CN-EXT.
+ * These are obsolete Chinese character set encodings (RFC 1922) that are virtually
+ * never used in modern software, but exposed a critical buffer overflow vulnerability
+ * in glibc's gconv conversion module (CVE-2024-2961).
+ * See: https://nvd.nist.gov/vuln/detail/CVE-2024-2961
+ */
+static int 
+is_blocked_encoding(const char *name)
+{
+    if (strncasecmp(name, "ISO-2022-CN", 11) == 0
+            || strncasecmp(name, "ISO_2022_CN", 11) == 0
+            || strncasecmp(name, "ISO2022CN", 9) == 0
+            || strncasecmp(name, "CSISO2022CN", 11) == 0) {
+        return 1;
+    }
+    return 0;
+}
  
 static ERL_NIF_TERM 
 eiconv_open_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) 
@@ -97,6 +116,10 @@ eiconv_open_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     if (memchr(tocode.data, '\0', tocode.size - 1) != NULL ||
         memchr(fromcode.data, '\0', fromcode.size - 1) != NULL)
         return enif_make_badarg(env);
+
+    if (is_blocked_encoding((const char *) tocode.data) ||
+        is_blocked_encoding((const char *) fromcode.data))
+        return eiconv_make_error(env, EINVAL);
 
     cd = enif_alloc_resource(eiconv_cd_type, sizeof(eiconv_cd));
     if (cd == NULL) {

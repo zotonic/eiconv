@@ -53,6 +53,15 @@ non_existing_codecs_test() ->
     ?assertEqual({error, einval}, eiconv:open("utf-8", "iso8859-23")),
     ?assertEqual({error, einval}, eiconv:open("iso8859-23", "utf-8")).
 
+blocked_codecs_test() ->
+    ?assertEqual({error, einval}, eiconv:open("iso-2022-cn-ext", "utf-8")),
+    ?assertEqual({error, einval}, eiconv:open("ISO-2022-CN", "utf-8")),
+    ?assertEqual({error, einval}, eiconv:open("utf-8", "iso-2022-cn-ext")),
+    ?assertEqual({error, einval}, eiconv:open("utf-8", "ISO-2022-CN")),
+    ?assertEqual({error, einval}, eiconv:convert("iso-2022-cn-ext", "utf-8", "test")),
+    ?assertEqual({error, einval}, eiconv:convert("utf-8", "iso-2022-cn-ext", "test")),
+    ok.
+
 convert_encoding_test() ->
     ?assertEqual({error, einval}, eiconv:convert("utf-9", "Test, 123")),
     ?assertEqual({error, einval}, eiconv:convert("utf-8", "non-existent", "Test, 123")),
