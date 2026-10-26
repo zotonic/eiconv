@@ -261,8 +261,13 @@ eiconv_chunk_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
             out = outbuf.data + (outbufsize - outbytesleft);
         } else if (errno == EINVAL) {
             /* we got an incomplete character sequence */
-            if(outbytesleft > 0)
-                enif_realloc_binary(&outbuf, outbufsize - outbytesleft);
+            if (outbytesleft > 0) {
+                if (!enif_realloc_binary(&outbuf, outbufsize - outbytesleft)) {
+                    enif_release_binary(&outbuf);
+                    enif_mutex_unlock(cd->lock);
+                    return make_error_tuple(env, "enomem");
+                }
+            }
 
             if(!enif_alloc_binary(inbytesleft, &(cd->restbuf))) {
                 enif_release_binary(&outbuf);
@@ -284,8 +289,13 @@ eiconv_chunk_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
         }
     } while (rc == (size_t)(-1));
 
-    if(outbytesleft > 0)
-        enif_realloc_binary(&outbuf, outbufsize - outbytesleft);
+    if (outbytesleft > 0) {
+        if (!enif_realloc_binary(&outbuf, outbufsize - outbytesleft)) {
+            enif_release_binary(&outbuf);
+            enif_mutex_unlock(cd->lock);
+            return make_error_tuple(env, "enomem");
+        }
+    }
 
     enif_mutex_unlock(cd->lock);
     return enif_make_tuple2(env, make_atom(env, "done"), 
