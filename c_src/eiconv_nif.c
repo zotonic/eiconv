@@ -207,6 +207,7 @@ eiconv_chunk_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     unsigned char *in, *out;
     size_t inbytesleft, outbytesleft, outbufsize, rc;
     ERL_NIF_TERM list;
+    int err;
 
     if (!enif_get_resource(env, argv[0], eiconv_cd_type, (void **) &cd))
         return enif_make_badarg(env);
@@ -247,7 +248,9 @@ eiconv_chunk_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
         if(rc != (size_t)(-1)) 
             break;
 
-        if (errno == E2BIG) {
+        err = errno;
+
+        if (err == E2BIG) {
             /* The result doesn't fit in outbuf, realloc and try again */
             outbytesleft += outbufsize;
             outbufsize *= 2;
@@ -259,7 +262,7 @@ eiconv_chunk_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
             }
 
             out = outbuf.data + (outbufsize - outbytesleft);
-        } else if (errno == EINVAL) {
+        } else if (err == EINVAL) {
             /* we got an incomplete character sequence */
             if (outbytesleft > 0) {
                 if (!enif_realloc_binary(&outbuf, outbufsize - outbytesleft)) {
@@ -285,7 +288,7 @@ eiconv_chunk_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
         } else {
             enif_release_binary(&outbuf);
             enif_mutex_unlock(cd->lock);
-            return eiconv_make_error(env, errno);
+            return eiconv_make_error(env, err);
         }
     } while (rc == (size_t)(-1));
 
