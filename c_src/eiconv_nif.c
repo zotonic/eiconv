@@ -1,5 +1,5 @@
 /*
- * Copyright 2011, 2012, 2013 Maas-Maarten Zeeman
+ * Copyright 2011-2026 Maas-Maarten Zeeman
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -78,6 +78,48 @@ eiconv_make_error(ErlNifEnv* env, int error_number) {
     return make_error_tuple(env, "eunknown");
 }
 
+static int ascii_alnum(unsigned char c)
+{
+    return (c >= '0' && c <= '9')
+        || (c >= 'A' && c <= 'Z')
+        || (c >= 'a' && c <= 'z');
+}
+
+static unsigned char ascii_upper(unsigned char c)
+{
+    return (c >= 'a' && c <= 'z') ? c - 32 : c;
+}
+
+static int
+is_valid_encoding_name(const char *name, size_t len)
+{
+    size_t i;
+
+    if (len == 0 || len > 128)
+        return 0;
+
+    /* Must start with an alphanumeric character */
+    if (!ascii_alnum((unsigned char) name[0]))
+        return 0;
+
+    /* Must end with an alphanumeric character or '+' (e.g. BIG-5+) */
+    if (!ascii_alnum((unsigned char) name[len - 1]) && name[len - 1] != '+')
+        return 0;
+
+    for (i = 0; i < len; i++) {
+        unsigned char c = (unsigned char) name[i];
+        if (ascii_alnum(c) || c == '-' || c == '_' || c == '.' || c == ':' || c == '+')
+            continue;
+        if (c == '/' && i + 1 < len && name[i + 1] == '/') {
+            i++; /* skip the second slash */
+            continue;
+        }
+        return 0;
+    }
+
+    return 1;
+}
+
 /*
  * Block ISO-2022-CN and ISO-2022-CN-EXT.
  * These are obsolete Chinese character set encodings (RFC 1922) that are virtually
@@ -88,10 +130,21 @@ eiconv_make_error(ErlNifEnv* env, int error_number) {
 static int 
 is_blocked_encoding(const char *name)
 {
-    if (strncasecmp(name, "ISO-2022-CN", 11) == 0
-            || strncasecmp(name, "ISO_2022_CN", 11) == 0
-            || strncasecmp(name, "ISO2022CN", 9) == 0
-            || strncasecmp(name, "CSISO2022CN", 11) == 0) {
+    char norm[64];
+    size_t i = 0, j = 0;
+
+    /* Extract uppercase alphanumeric characters to canonicalize */
+    while (name[i] != '\0' && j < sizeof(norm) - 1) {
+        unsigned char c = (unsigned char) name[i];
+        if (ascii_alnum(c)) {
+            norm[j++] = (char) ascii_upper(c);
+        }
+        i++;
+    }
+    norm[j] = '\0';
+
+    if (strncmp(norm, "ISO2022CN", 9) == 0 ||
+        strncmp(norm, "CSISO2022CN", 11) == 0) {
         return 1;
     }
     return 0;
@@ -113,8 +166,8 @@ eiconv_open_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
             enif_make_list2(env, argv[1], eos), &fromcode))
         return enif_make_badarg(env);
 
-    if (memchr(tocode.data, '\0', tocode.size - 1) != NULL ||
-        memchr(fromcode.data, '\0', fromcode.size - 1) != NULL)
+    if (!is_valid_encoding_name((const char *) tocode.data, tocode.size - 1) ||
+        !is_valid_encoding_name((const char *) fromcode.data, fromcode.size - 1))
         return enif_make_badarg(env);
 
     if (is_blocked_encoding((const char *) tocode.data) ||

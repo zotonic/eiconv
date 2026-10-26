@@ -53,11 +53,32 @@ non_existing_codecs_test() ->
     ?assertEqual({error, einval}, eiconv:open("utf-8", "iso8859-23")),
     ?assertEqual({error, einval}, eiconv:open("iso8859-23", "utf-8")).
 
+invalid_encoding_syntax_test() ->
+    %% Leading or trailing whitespace
+    ?assertError(badarg, eiconv:open("  utf-8", "ascii")),
+    ?assertError(badarg, eiconv:open("utf-8  ", "ascii")),
+    ?assertError(badarg, eiconv:open("\tutf-8", "ascii")),
+    ?assertError(badarg, eiconv:open("utf-8\n", "ascii")),
+    %% Junk characters and punctuation
+    ?assertError(badarg, eiconv:open("///utf-8", "ascii")),
+    ?assertError(badarg, eiconv:open("utf-8///", "ascii")),
+    ?assertError(badarg, eiconv:open("utf-8;evil", "ascii")),
+    ?assertError(badarg, eiconv:open("utf-8 evil", "ascii")),
+    ?assertError(badarg, eiconv:open("!iso-2022-cn", "ascii")),
+    ?assertError(badarg, eiconv:open("  ISO-2022-CN", "ascii")),
+    ok.
+
 blocked_codecs_test() ->
     ?assertEqual({error, einval}, eiconv:open("iso-2022-cn-ext", "utf-8")),
     ?assertEqual({error, einval}, eiconv:open("ISO-2022-CN", "utf-8")),
+    ?assertEqual({error, einval}, eiconv:open("ISO_2022_CN", "utf-8")),
+    ?assertEqual({error, einval}, eiconv:open("ISO2022CN", "utf-8")),
+    ?assertEqual({error, einval}, eiconv:open("cs-iso-2022-cn", "utf-8")),
+    ?assertEqual({error, einval}, eiconv:open("ISO-2022-CN//TRANSLIT", "utf-8")),
+    ?assertEqual({error, einval}, eiconv:open("ISO-2022-CN-EXT//IGNORE", "utf-8")),
     ?assertEqual({error, einval}, eiconv:open("utf-8", "iso-2022-cn-ext")),
     ?assertEqual({error, einval}, eiconv:open("utf-8", "ISO-2022-CN")),
+    ?assertEqual({error, einval}, eiconv:open("utf-8", "ISO2022CN")),
     ?assertEqual({error, einval}, eiconv:convert("iso-2022-cn-ext", "utf-8", "test")),
     ?assertEqual({error, einval}, eiconv:convert("utf-8", "iso-2022-cn-ext", "test")),
     ok.
