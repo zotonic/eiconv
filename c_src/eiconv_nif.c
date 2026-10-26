@@ -56,8 +56,10 @@ static void descruct_eiconv_cd(ErlNifEnv *env, void *cd)
     if (e_cd->cd != (iconv_t)(-1))
         iconv_close(e_cd->cd);
 
-    if (e_cd->restbuf.size > 0)
+    if (e_cd->restbuf.size > 0) {
         enif_release_binary(&(e_cd->restbuf));
+        memset(&(e_cd->restbuf), 0, sizeof(ErlNifBinary));
+    }
 }
 
 static ERL_NIF_TERM 
@@ -88,8 +90,10 @@ eiconv_open_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
         return enif_make_badarg(env);
 
     cd = enif_alloc_resource(eiconv_cd_type, sizeof(eiconv_cd));
-    cd->restbuf.data = NULL;
-    cd->restbuf.size = 0;
+    if (cd == NULL) {
+        return make_error_tuple(env, "enomem");
+    }
+    memset(cd, 0, sizeof(eiconv_cd));
     
     cd->cd = iconv_open((const char *) tocode.data, (const char *) fromcode.data);
     if((iconv_t)(-1) == cd->cd) {
@@ -117,16 +121,15 @@ eiconv_chunk_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
     if (cd->cd == (iconv_t)(-1))
         return enif_make_badarg(env);
-  
+
+    if (!enif_inspect_iolist_as_binary(env, argv[1], &inbuf))
+        return enif_make_badarg(env);
+
     if (cd->restbuf.size > 0) {
-        list = enif_make_list2(env,
-                    enif_make_binary(env, &(cd->restbuf)), argv[1]);
+        ERL_NIF_TERM rest_bin = enif_make_binary(env, &(cd->restbuf));
+        memset(&(cd->restbuf), 0, sizeof(ErlNifBinary));
+        list = enif_make_list2(env, rest_bin, argv[1]);
         if (!enif_inspect_iolist_as_binary(env, list, &inbuf))
-            return enif_make_badarg(env);
-        cd->restbuf.data = NULL;
-        cd->restbuf.size = 0;
-    } else {
-        if (!enif_inspect_iolist_as_binary(env, argv[1], &inbuf))
             return enif_make_badarg(env);
     }
  
@@ -208,8 +211,7 @@ eiconv_finalize_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
         r = enif_make_tuple2(env, 
                 make_atom(env, "rest"), 
                 enif_make_binary(env, &(cd->restbuf)));
-        cd->restbuf.data = NULL;
-        cd->restbuf.size = 0;
+        memset(&(cd->restbuf), 0, sizeof(ErlNifBinary));
         return r;
     }
 
