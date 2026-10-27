@@ -40,10 +40,33 @@ utf8_to_iso8859_15_test() ->
     {ok, C} = eiconv:open("iso8859-15", "utf8"),
     ?assertEqual(<<163,  164, 165>>, conv(C, [194, 163, 226, 130, 172, 194, 165])).
 
+null_byte_encoding_name_test() ->
+    ?assertError(badarg, eiconv:open(<<"utf-8\0evil">>, "ascii")),
+    ?assertError(badarg, eiconv:open("utf-8", <<"ascii\0evil">>)),
+    ?assertError(badarg, eiconv:open([<<"utf-8">>, 0, <<"evil">>], "ascii")),
+    ?assertError(badarg, eiconv:convert(<<"utf-8\0evil">>, "ascii", "123")),
+    ?assertError(badarg, eiconv:convert("utf-8", <<"ascii\0evil">>, "123")),
+    ok.
+
 non_existing_codecs_test() ->
     ?assertEqual({error, einval}, eiconv:open("utf-9", "utf-15")),
     ?assertEqual({error, einval}, eiconv:open("utf-8", "iso8859-23")),
     ?assertEqual({error, einval}, eiconv:open("iso8859-23", "utf-8")).
+
+blocked_codecs_test() ->
+    ?assertEqual({error, einval}, eiconv:open("iso-2022-cn-ext", "utf-8")),
+    ?assertEqual({error, einval}, eiconv:open("ISO-2022-CN", "utf-8")),
+    ?assertEqual({error, einval}, eiconv:open("ISO_2022_CN", "utf-8")),
+    ?assertEqual({error, einval}, eiconv:open("ISO2022CN", "utf-8")),
+    ?assertEqual({error, einval}, eiconv:open("cs-iso-2022-cn", "utf-8")),
+    ?assertEqual({error, einval}, eiconv:open("ISO-2022-CN//TRANSLIT", "utf-8")),
+    ?assertEqual({error, einval}, eiconv:open("ISO-2022-CN-EXT//IGNORE", "utf-8")),
+    ?assertEqual({error, einval}, eiconv:open("utf-8", "iso-2022-cn-ext")),
+    ?assertEqual({error, einval}, eiconv:open("utf-8", "ISO-2022-CN")),
+    ?assertEqual({error, einval}, eiconv:open("utf-8", "ISO2022CN")),
+    ?assertEqual({error, einval}, eiconv:convert("iso-2022-cn-ext", "utf-8", "test")),
+    ?assertEqual({error, einval}, eiconv:convert("utf-8", "iso-2022-cn-ext", "test")),
+    ok.
 
 convert_encoding_test() ->
     ?assertEqual({error, einval}, eiconv:convert("utf-9", "Test, 123")),
@@ -72,4 +95,76 @@ incomplete_chunk_test() ->
     ?assertEqual({done, <<164>>}, eiconv:chunk(C, <<172>>)),
     ?assertEqual({done, <<165>>}, eiconv:chunk(C, [194, 165])),
     ?assertEqual(ok, eiconv:finalize(C)),
+    ok.
+
+%% Finding 1: Calling chunk with an invalid argument when restbuf holds an incomplete
+%% character should not corrupt restbuf or cause double-free on subsequent operations or GC.
+-dialyzer({nowarn_function, restbuf_badarg_safety_test/0}).
+restbuf_badarg_safety_test() ->
+    {ok, C} = eiconv:open("iso8859-15", "utf8"),
+    %% Feed incomplete UTF-8 sequence, leaving <<194>> in restbuf:
+    ?assertEqual({more, <<"AB">>}, eiconv:chunk(C, <<65, 66, 194>>)),
+    %% Pass an invalid iolist argument (raises badarg):
+    ?assertError(badarg, eiconv:chunk(C, invalid_term)),
+    %% A subsequent chunk call completes the character sequence and finalize cleans up:
+    ?assertEqual({done, <<163>>}, eiconv:chunk(C, <<163>>)),
+    ?assertEqual(ok, eiconv:finalize(C)),
+    erlang:garbage_collect(),
+    ok.
+
+%% Finding 2: Concurrent use of a shared converter descriptor.
+%% Multiple processes using the same Cd concurrently should be thread-safe
+%% and not corrupt internal conversion state or crash with eilseq.
+-dialyzer({nowarn_function, concurrent_converter_access_test/0}).
+concurrent_converter_access_test() ->
+    {ok, C} = eiconv:open("utf8", "iso8859-15"),
+    Self = self(),
+    NumWorkers = 10,
+    NumIterations = 1000,
+    Pids = [
+        spawn_link(fun() ->
+            lists:foreach(
+                fun(_) ->
+                    case eiconv:chunk(C, [163, 164, 165]) of
+                        {done, <<194, 163, 226, 130, 172, 194, 165>>} -> ok;
+                        Other -> exit({unexpected_chunk, Other})
+                    end
+                end,
+                lists:seq(1, NumIterations)
+            ),
+            Self ! {done, self()}
+        end)
+     || _ <- lists:seq(1, NumWorkers)
+    ],
+    [receive {done, Pid} -> ok end || Pid <- Pids],
+    ?assertEqual(ok, eiconv:finalize(C)).
+
+%% Finding 4: iconv return value check (rc == 0 vs rc != (size_t)(-1)).
+%% Successful transliteration can return rc > 0, which must not be treated as an error.
+transliteration_return_value_test() ->
+    case eiconv:open("ascii//translit", "utf-8") of
+        {ok, C} ->
+            {done, Converted} = eiconv:chunk(C, <<"hello € world"/utf8>>),
+            %% Transliteration varies by implementation; preserve surrounding text
+            %% and require ASCII output without assuming how the euro is rendered.
+            ?assertMatch(<<"hello ", _/binary>>, Converted),
+            ?assertEqual(<<" world">>, binary:part(Converted, {byte_size(Converted), -6})),
+            ?assert(lists:all(fun(Byte) -> Byte < 128 end, binary_to_list(Converted))),
+            ?assertEqual(ok, eiconv:finalize(C));
+        {error, einval} ->
+            %% Some libc implementations do not support //translit suffix
+            ok
+    end.
+
+%% EILSEQ should return the converted prefix instead of discarding it,
+%% so callers of the low level chunk/2 api can salvage partial output.
+eilseq_partial_output_test() ->
+    {ok, C} = eiconv:open("utf-8", "utf-8"),
+    ?assertEqual({error, eilseq, <<"hello">>},
+        eiconv:chunk(C, <<"hello", 16#FF>>)),
+    ?assertEqual(ok, eiconv:finalize(C)),
+
+    %% The public conv/convert api keeps returning {error, Reason}.
+    ?assertEqual({error, eilseq},
+        eiconv:convert("utf-8", "utf-8", <<"hello", 16#FF>>)),
     ok.

@@ -1,4 +1,4 @@
-%%% Copyright 2011, 2012, 2013 Maas-Maarten Zeeman
+%%% Copyright 2011-2026 Maas-Maarten Zeeman
 %%%
 %%% Licensed under the Apache License, Version 2.0 (the "License");
 %%% you may not use this file except in compliance with the License.
@@ -62,20 +62,33 @@ init() ->
     ok = erlang:load_nif(NifFileName, 0).
 
 %% @doc Open a new encoder which can be used to convert text from `FromCode' into `ToCode'.
-
+-spec open(ToEncoding, FromEncoding) -> Result when
+    ToEncoding :: iodata(), 
+    FromEncoding :: iodata(), 
+    Result :: {ok, reference()} | {error, term()}.
 open(_ToCode, _FromCode) ->
     erlang:nif_error(nif_library_not_loaded).
 
 %% @private
-%% @doc Convert a chunk, returns `{done, ConvertedBytes} } | {more, Converted}'
-
+%% @doc Convert a chunk, returns `{done, ConvertedBytes} | {more, Converted}
+%%       | {error, Reason} | {error, Reason, Converted}'
+%%
+%%       `Converted' in the error case contains the bytes converted before
+%%       an invalid input sequence was found.
+-spec chunk(Cd, Input) -> Result when
+      Cd :: reference(),
+      Input :: iodata(),
+      Result :: {done, binary()} | {more, binary()} | {error, term()}
+              | {error, term(), binary()}.
 chunk(_Cd, _Input) ->
     erlang:nif_error(nif_library_not_loaded).
 
 %% @private
 %% @doc Reset the cd structure, 
 %% @returns `ok | {rest, LeftOverBytes}'
-
+-spec finalize(Cd) -> Result when
+      Cd :: reference(),
+      Result :: ok | {rest, binary()}.
 finalize(_Cd) ->
     erlang:nif_error(nif_library_not_loaded).
 
@@ -105,8 +118,14 @@ conv1(Cd, [], Acc) ->
     end;
 conv1(Cd, [H|T], Acc) ->
     case chunk(Cd, H) of
-        {error, _}=Error ->
-            Error;
+        {error, Reason} ->
+            {error, Reason};
+        {error, Reason, _Converted} ->
+            %% Chunk conversion failed on an invalid input sequence. The
+            %% converted prefix is discarded to keep the return value of
+            %% conv/2,3 backwards compatible; callers of the low level
+            %% chunk/2 api do receive it.
+            {error, Reason};
         {What, <<>>} when What =:= done orelse What =:= more ->
             conv1(Cd, T, Acc);
         {What, Result} when What =:= done orelse What =:= more ->
@@ -120,21 +139,19 @@ close(_Cd) ->
 
 %% @doc Convert input `FromEncoding' to `utf-8'
 %% @equiv convert(FromEncoding, "utf-8", Input)
-
 -spec convert(FromEncoding, Input) -> Result when
-    FromEncoding :: string(), 
-    Input :: string(),
+    FromEncoding :: iodata(), 
+    Input :: iodata(),
     Result :: {ok, binary()} | {error, Error},
     Error :: term().
 convert(FromEncoding, Input) ->
     convert(FromEncoding, "utf-8", Input).
 
 %% @doc Convert `Input' which is in `FromEncoding' to `ToEncoding'.
-
 -spec convert(FromEncoding, ToEncoding, Input) -> Result when
-    FromEncoding :: string(), 
-    ToEncoding :: string(), 
-    Input :: string(),
+    FromEncoding :: iodata(), 
+    ToEncoding :: iodata(), 
+    Input :: iodata(),
     Result :: {ok, binary()} | {error, Error},
     Error :: term().
 convert(FromEncoding, ToEncoding, Input) ->
