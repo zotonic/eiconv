@@ -45,7 +45,7 @@ make_error_tuple(ErlNifEnv *env, const char *reason)
         make_atom(env, reason));
 }
 
-static void descruct_eiconv_cd(ErlNifEnv *env, void *cd)
+static void destruct_eiconv_cd(ErlNifEnv *env, void *cd)
 {
     eiconv_cd *e_cd = (eiconv_cd *) cd;
 
@@ -67,15 +67,21 @@ static void descruct_eiconv_cd(ErlNifEnv *env, void *cd)
     }
 }
 
+static const char *
+eiconv_error_reason(int error_number)
+{
+    if (error_number == EILSEQ)
+        return "eilseq";
+
+    if (error_number == EINVAL)
+        return "einval";
+
+    return "eunknown";
+}
+
 static ERL_NIF_TERM 
 eiconv_make_error(ErlNifEnv* env, int error_number) {
-    if(error_number == EILSEQ) 
-        return make_error_tuple(env, "eilseq");
-
-    if(error_number == EINVAL)
-        return make_error_tuple(env, "einval");
-
-    return make_error_tuple(env, "eunknown");
+    return make_error_tuple(env, eiconv_error_reason(error_number));
 }
 
 static int ascii_alnum(unsigned char c)
@@ -221,7 +227,7 @@ eiconv_chunk_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
     out = outbuf.data;
     
-    do {
+    for (;;) {
         rc = iconv(cd->cd, (char **) &in, &inbytesleft, (char **) &out, &outbytesleft);
         if(rc != (size_t)(-1)) 
             break;
@@ -264,11 +270,24 @@ eiconv_chunk_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
             return enif_make_tuple2(env, make_atom(env, "more"), 
                 enif_make_binary(env, &outbuf));          
         } else {
-            enif_release_binary(&outbuf);
+            /* An invalid or unconvertible sequence was found in the input.
+             * Return the bytes converted so far together with the error,
+             * so callers can salvage partial output (like the EINVAL
+             * path does). */
+            if (outbytesleft > 0) {
+                if (!enif_realloc_binary(&outbuf, outbufsize - outbytesleft)) {
+                    enif_release_binary(&outbuf);
+                    enif_mutex_unlock(cd->lock);
+                    return make_error_tuple(env, "enomem");
+                }
+            }
+
             enif_mutex_unlock(cd->lock);
-            return eiconv_make_error(env, err);
+            return enif_make_tuple3(env, make_atom(env, "error"),
+                make_atom(env, eiconv_error_reason(err)),
+                enif_make_binary(env, &outbuf));
         }
-    } while (rc == (size_t)(-1));
+    }
 
     if (outbytesleft > 0) {
         if (!enif_realloc_binary(&outbuf, outbufsize - outbytesleft)) {
@@ -326,7 +345,7 @@ on_load(ErlNifEnv* env, void** priv, ERL_NIF_TERM info)
 {
     ErlNifResourceType *rt = enif_open_resource_type(
         env, "eiconv", "eiconv_cd_type", 
-        descruct_eiconv_cd, ERL_NIF_RT_CREATE, NULL);
+        destruct_eiconv_cd, ERL_NIF_RT_CREATE, NULL);
     if(!rt) 
         return -1;
 

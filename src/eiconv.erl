@@ -70,11 +70,16 @@ open(_ToCode, _FromCode) ->
     erlang:nif_error(nif_library_not_loaded).
 
 %% @private
-%% @doc Convert a chunk, returns `{done, ConvertedBytes} } | {more, Converted}'
+%% @doc Convert a chunk, returns `{done, ConvertedBytes}} | {more, Converted}
+%%       | {error, Reason} | {error, Reason, Converted}'
+%%
+%%       `Converted' in the error case contains the bytes converted before
+%%       an invalid input sequence was found.
 -spec chunk(Cd, Input) -> Result when
       Cd :: reference(),
       Input :: iodata(),
-      Result :: {done, binary()} | {more, binary()} | {error, term()}.
+      Result :: {done, binary()} | {more, binary()} | {error, term()}
+              | {error, term(), binary()}.
 chunk(_Cd, _Input) ->
     erlang:nif_error(nif_library_not_loaded).
 
@@ -113,8 +118,14 @@ conv1(Cd, [], Acc) ->
     end;
 conv1(Cd, [H|T], Acc) ->
     case chunk(Cd, H) of
-        {error, _}=Error ->
-            Error;
+        {error, Reason} ->
+            {error, Reason};
+        {error, Reason, _Converted} ->
+            %% Chunk conversion failed on an invalid input sequence. The
+            %% converted prefix is discarded to keep the return value of
+            %% conv/2,3 backwards compatible; callers of the low level
+            %% chunk/2 api do receive it.
+            {error, Reason};
         {What, <<>>} when What =:= done orelse What =:= more ->
             conv1(Cd, T, Acc);
         {What, Result} when What =:= done orelse What =:= more ->

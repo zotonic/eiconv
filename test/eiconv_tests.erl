@@ -152,3 +152,16 @@ transliteration_return_value_test() ->
             %% Some libc implementations do not support //translit suffix
             ok
     end.
+
+%% EILSEQ should return the converted prefix instead of discarding it,
+%% so callers of the low level chunk/2 api can salvage partial output.
+eilseq_partial_output_test() ->
+    {ok, C} = eiconv:open("utf-8", "utf-8"),
+    ?assertEqual({error, eilseq, <<"hello">>},
+        eiconv:chunk(C, <<"hello", 16#FF>>)),
+    ?assertEqual(ok, eiconv:finalize(C)),
+
+    %% The public conv/convert api keeps returning {error, Reason}.
+    ?assertEqual({error, eilseq},
+        eiconv:convert("utf-8", "utf-8", <<"hello", 16#FF>>)),
+    ok.
