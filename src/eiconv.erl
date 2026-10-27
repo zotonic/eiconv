@@ -70,7 +70,7 @@ open(_ToCode, _FromCode) ->
     erlang:nif_error(nif_library_not_loaded).
 
 %% @private
-%% @doc Convert a chunk, returns `{done, ConvertedBytes}} | {more, Converted}
+%% @doc Convert a chunk, returns `{done, ConvertedBytes} | {more, Converted}
 %%       | {error, Reason} | {error, Reason, Converted}'
 %%
 %%       `Converted' in the error case contains the bytes converted before

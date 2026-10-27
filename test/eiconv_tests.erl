@@ -140,13 +140,16 @@ concurrent_converter_access_test() ->
     ?assertEqual(ok, eiconv:finalize(C)).
 
 %% Finding 4: iconv return value check (rc == 0 vs rc != (size_t)(-1)).
-%% When transliteration is used, iconv performs non-identical conversion and returns
-%% rc > 0. The current code assumes any rc != 0 is an error, failing with {error, eunknown}.
+%% Successful transliteration can return rc > 0, which must not be treated as an error.
 transliteration_return_value_test() ->
     case eiconv:open("ascii//translit", "utf-8") of
         {ok, C} ->
-            ?assertEqual({done, <<"hello EUR world">>},
-                         eiconv:chunk(C, <<"hello € world"/utf8>>)),
+            {done, Converted} = eiconv:chunk(C, <<"hello € world"/utf8>>),
+            %% Transliteration varies by implementation; preserve surrounding text
+            %% and require ASCII output without assuming how the euro is rendered.
+            ?assertMatch(<<"hello ", _/binary>>, Converted),
+            ?assertEqual(<<" world">>, binary:part(Converted, {byte_size(Converted), -6})),
+            ?assert(lists:all(fun(Byte) -> Byte < 128 end, binary_to_list(Converted))),
             ?assertEqual(ok, eiconv:finalize(C));
         {error, einval} ->
             %% Some libc implementations do not support //translit suffix
