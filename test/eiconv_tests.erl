@@ -99,6 +99,7 @@ incomplete_chunk_test() ->
 
 %% Finding 1: Calling chunk with an invalid argument when restbuf holds an incomplete
 %% character should not corrupt restbuf or cause double-free on subsequent operations or GC.
+-dialyzer({nowarn_function, restbuf_badarg_safety_test/0}).
 restbuf_badarg_safety_test() ->
     {ok, C} = eiconv:open("iso8859-15", "utf8"),
     %% Feed incomplete UTF-8 sequence, leaving <<194>> in restbuf:
@@ -114,6 +115,7 @@ restbuf_badarg_safety_test() ->
 %% Finding 2: Concurrent use of a shared converter descriptor.
 %% Multiple processes using the same Cd concurrently should be thread-safe
 %% and not corrupt internal conversion state or crash with eilseq.
+-dialyzer({nowarn_function, concurrent_converter_access_test/0}).
 concurrent_converter_access_test() ->
     {ok, C} = eiconv:open("utf8", "iso8859-15"),
     Self = self(),

@@ -1,4 +1,4 @@
-%%% Copyright 2011, 2012, 2013 Maas-Maarten Zeeman
+%%% Copyright 2011-2026 Maas-Maarten Zeeman
 %%%
 %%% Licensed under the Apache License, Version 2.0 (the "License");
 %%% you may not use this file except in compliance with the License.
@@ -62,20 +62,28 @@ init() ->
     ok = erlang:load_nif(NifFileName, 0).
 
 %% @doc Open a new encoder which can be used to convert text from `FromCode' into `ToCode'.
-
+-spec open(ToEncoding, FromEncoding) -> Result when
+    ToEncoding :: iodata(), 
+    FromEncoding :: iodata(), 
+    Result :: {ok, reference()} | {error, term()}.
 open(_ToCode, _FromCode) ->
     erlang:nif_error(nif_library_not_loaded).
 
 %% @private
 %% @doc Convert a chunk, returns `{done, ConvertedBytes} } | {more, Converted}'
-
+-spec chunk(Cd, Input) -> Result when
+      Cd :: reference(),
+      Input :: iodata(),
+      Result :: {done, binary()} | {more, binary()} | {error, term()}.
 chunk(_Cd, _Input) ->
     erlang:nif_error(nif_library_not_loaded).
 
 %% @private
 %% @doc Reset the cd structure, 
 %% @returns `ok | {rest, LeftOverBytes}'
-
+-spec finalize(Cd) -> Result when
+      Cd :: reference(),
+      Result :: ok | {rest, binary()}.
 finalize(_Cd) ->
     erlang:nif_error(nif_library_not_loaded).
 
@@ -120,21 +128,19 @@ close(_Cd) ->
 
 %% @doc Convert input `FromEncoding' to `utf-8'
 %% @equiv convert(FromEncoding, "utf-8", Input)
-
 -spec convert(FromEncoding, Input) -> Result when
-    FromEncoding :: string(), 
-    Input :: string(),
+    FromEncoding :: iodata(), 
+    Input :: iodata(),
     Result :: {ok, binary()} | {error, Error},
     Error :: term().
 convert(FromEncoding, Input) ->
     convert(FromEncoding, "utf-8", Input).
 
 %% @doc Convert `Input' which is in `FromEncoding' to `ToEncoding'.
-
 -spec convert(FromEncoding, ToEncoding, Input) -> Result when
-    FromEncoding :: string(), 
-    ToEncoding :: string(), 
-    Input :: string(),
+    FromEncoding :: iodata(), 
+    ToEncoding :: iodata(), 
+    Input :: iodata(),
     Result :: {ok, binary()} | {error, Error},
     Error :: term().
 convert(FromEncoding, ToEncoding, Input) ->
