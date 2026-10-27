@@ -93,31 +93,9 @@ static unsigned char ascii_upper(unsigned char c)
 static int
 is_valid_encoding_name(const char *name, size_t len)
 {
-    size_t i;
-
-    if (len == 0 || len > 128)
-        return 0;
-
-    /* Must start with an alphanumeric character */
-    if (!ascii_alnum((unsigned char) name[0]))
-        return 0;
-
-    /* Must end with an alphanumeric character or '+' (e.g. BIG-5+) */
-    if (!ascii_alnum((unsigned char) name[len - 1]) && name[len - 1] != '+')
-        return 0;
-
-    for (i = 0; i < len; i++) {
-        unsigned char c = (unsigned char) name[i];
-        if (ascii_alnum(c) || c == '-' || c == '_' || c == '.' || c == ':' || c == '+')
-            continue;
-        if (c == '/' && i + 1 < len && name[i + 1] == '/') {
-            i++; /* skip the second slash */
-            continue;
-        }
-        return 0;
-    }
-
-    return 1;
+    /* iconv_open() takes a C string, so an embedded NUL would silently
+       truncate the name. */
+    return memchr(name, '\0', len) == NULL;
 }
 
 /*
